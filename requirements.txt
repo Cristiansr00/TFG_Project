@@ -1,0 +1,4 @@
+ultralytics
+scikit-image
+ipykernel
+scikit-learn
