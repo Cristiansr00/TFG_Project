@@ -1,5 +1,5 @@
 from services.dataset_service import get_datasets, generateFolderStructure
-from services.processing import generate_multichannel_structure
+from services.processing import generate_multichannel_structure, execute
 from utils.tools import limpiar_consola
 
 def menu_datasets(error = False):
@@ -41,28 +41,28 @@ def menu_datasets_options():
     print("0. Volver")
 
 def flujo():
-    print(get_datasets())
-    d = input("Selecciona un dataset")
+    execute()    
+    # print(get_datasets())
+    # d = input("Selecciona un dataset")
 
-    print("1. ASM")
-    print("2. Entropy")
+    # print("1. ASM")
+    # print("2. Entropy")
 
-    t = input("Selecciona filtro de Texturas")
+    # t = input("Selecciona filtro de Texturas")
 
-    print("Filtro morfologicos para la binarización")
-    print("1. Apertura")
-    print("2. Cierre")
+    # print("Filtro morfologicos para la binarización")
+    # print("1. Apertura")
+    # print("2. Cierre")
 
-    f = input("Selecciona Filtro para la binarización")
+    # f = input("Selecciona Filtro para la binarización")
 
-    print("kernels disponibles")
-    print("1. 2x2")
-    print("2. 3x3")
-    print("3. 4x4")
-    print("4. 5x5")
+    # print("kernels disponibles")
+    # print("1. 2x2")
+    # print("2. 3x3")
+    # print("3. 4x4")
+    # print("4. 5x5")
 
-    k = input("Selecciona el kernel")
+    # k = input("Selecciona el kernel")
 
-    generate_multichannel_structure(d, t, (f,k))    
 
     

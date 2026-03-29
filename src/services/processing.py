@@ -2,6 +2,8 @@
 import os
 import shutil
 import cv2
+from transforms.Binarization.BinarizationTransforms import Otsu_binarization, Spline_binarization
+from transforms.Texture.TextureTransforms import Mean_texture, Std_texture, Contrast_texture, Dissimilarity_texture, Homogeneity_texture, Asm_texture, Max_texture, Entropy_texture
 from skimage.filters.rank import entropy
 from skimage.morphology import disk
 from utils import paths, tools
@@ -11,35 +13,137 @@ from tqdm import tqdm
 
 DESTINO = 'multichannelRGB'
 
-def generate_synthetic_RGB_image(img_path, r, b):
- #r -> imagen con textura
- #g -> imagen original
- #b-> imagen binarizada otsu
+TRANSFORMS_CONFIG = {
+    # Texturas (no necesitan parámetros adicionales)
+    1: {"class": Mean_texture(), "required_params": []},
+    2: {"class": Std_texture(), "required_params": []},
+    3: {"class": Contrast_texture(), "required_params": []},
+    4: {"class": Dissimilarity_texture(), "required_params": []},
+    5: {"class": Homogeneity_texture(), "required_params": []},
+    6: {"class": Asm_texture(), "required_params": []},
+    7: {"class": Max_texture(), "required_params": []},
+    8: {"class": Entropy_texture(), "required_params": []},
+    
+    # Binarizaciones (necesitan kernel y morph)
+    20: {"class": Otsu_binarization(), "required_params": ["kernel", "morph"]},
+    21: {"class": Spline_binarization(), "required_params": ["kernel", "morph"]},
+}
+
+def get_transform(transform_id, **kwargs):
+    """Obtiene transformación y valida parámetros"""
+    if transform_id not in TRANSFORMS_CONFIG:
+        raise ValueError(f"transform_id {transform_id} no existe")
+    
+    config = TRANSFORMS_CONFIG[transform_id]
+    required = config["required_params"]
+    
+    # Validar que estén todos los parámetros requeridos
+    for param in required:
+        if param not in kwargs:
+            raise ValueError(f"Transform {transform_id} requiere el parámetro '{param}'")
+    
+    return config["class"]
+
+
+def show_all_channels(img_rgb):
+    """Muestra cada canal por separado"""
+    # OpenCV usa BGR, así que separamos en ese orden
+    b_channel, g_channel, r_channel = cv2.split(img_rgb)
+    
+    # Mostrar cada canal en escala de grises
+    cv2.imshow("Canal R (Rojo)", r_channel)
+    cv2.imshow("Canal G (Verde)", g_channel)
+    cv2.imshow("Canal B (Azul)", b_channel)
+    
+    # Mostrar imagen RGB completa (convertir BGR a RGB para colores reales)
+    img_rgb_correcto = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
+    cv2.imshow("Imagen RGB Completa", img_rgb_correcto)
+    
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def show_all_channels_colored(img, assume_bgr=True):
+    if not assume_bgr:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    b_channel, g_channel, r_channel = cv2.split(img)
+    
+    zeros = np.zeros_like(b_channel)
+
+    r_display = cv2.merge([zeros, zeros, r_channel])
+    g_display = cv2.merge([zeros, g_channel, zeros])
+    b_display = cv2.merge([b_channel, zeros, zeros])
+
+    cv2.imshow("Canal Rojo", r_display)
+    cv2.imshow("Canal Verde", g_display)
+    cv2.imshow("Canal Azul", b_display)
+    cv2.imshow("Imagen Original", img)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def execute():
+    result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\src\services\2Gy-004.JPG", 0, 6, 20, b_params={'kernel': 3, 'morph': 1})
+    # result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\data\processed\SynBRG_nc3_ASM_5kFold\split_1\train\images\2Gy-004.JPG", 0, 6, 20, b_params={'kernel': 3, 'morph': 1})
+    cv2.imshow("Resultado", result)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def generate_synthetic_RGB_image(img_path, r_id, g_id, b_id, r_params=None, g_params=None, b_params=None):
+    """
+    Ejemplo:
+        generate_synthetic_RGB_image('img.jpg', 
+                                     r_id=6,      # Asm_texture (sin params)
+                                     g_id=0,      # Original
+                                     b_id=20,     # Otsu (requiere kernel, morph)
+                                     transform_params={'kernel': 2, 'morph': 1})
+    """    
     img = cv2.imread(img_path)
 
-    # Transformamos la imagen que puede ser en color a escala de grises
+    
     if len(img.shape) == 3 and img.shape[2] == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img
 
-    r_img = None
-    r = int(r)
-    if r == 1:
-        r_img = fast_glcm_ASM(gray)
-    elif r == 2:
-        r_img = fast_glcm_entropy(gray)
-    else:
-        raise ValueError("r must be 1 (ASM) or 2 (Entropy)")
+    
+    # Aplicar con validación
+    r_channel = get_transform(r_id, **(r_params or {}))(gray) if r_id != 0 else gray
+    g_channel = get_transform(g_id, **(g_params or {}))(gray) if g_id != 0 else gray
+    b_channel = get_transform(b_id, **(b_params or {}))(gray) if b_id != 0 else gray
+    
+    return cv2.merge([b_channel, g_channel, r_channel])
+    
 
-    g_img = gray
-    b_img = otsu_binarization(gray, b[0], b[1])
+# def generate_synthetic_RGB_image(img_path, r, b):
+#  #r -> imagen con textura
+#  #g -> imagen original
+#  #b-> imagen binarizada otsu
+#     img = cv2.imread(img_path)
 
-    ## Cambio
-    ## BGR 
-    processed_rgb = cv2.merge([g_img, r_img, b_img])
+#     # Transformamos la imagen que puede ser en color a escala de grises
+#     if len(img.shape) == 3 and img.shape[2] == 3:
+#         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#     else:
+#         gray = img
 
-    return processed_rgb    
+#     r_img = None
+#     r = int(r)
+#     if r == 1:
+#         r_img = fast_glcm_ASM(gray)
+#     elif r == 2:
+#         r_img = fast_glcm_entropy(gray)
+#     else:
+#         raise ValueError("r must be 1 (ASM) or 2 (Entropy)")
+
+#     g_img = gray
+#     b_img = otsu_binarization(gray, b[0], b[1])
+
+#     ## Cambio
+#     ## BGR 
+#     processed_rgb = cv2.merge([g_img, r_img, b_img])
+
+#     return processed_rgb    
 
 
 def otsu_binarization(gray_img, morph, kernel):
