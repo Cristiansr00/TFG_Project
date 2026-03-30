@@ -3,3 +3,4 @@ scikit-image
 ipykernel
 scikit-learn
 scikit-image
+tqdm

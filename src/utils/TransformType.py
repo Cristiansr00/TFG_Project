@@ -1,6 +1,9 @@
 from enum import IntEnum
 
 class TransformType(IntEnum):
+    # Original
+    ORIGINAL = 0
+
     # Texturas
     MEAN = 1
     STD = 2
