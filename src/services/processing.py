@@ -6,6 +6,7 @@ from transforms.Binarization.BinarizationTransforms import Otsu_binarization, Sp
 from transforms.Texture.TextureTransforms import Mean_texture, Std_texture, Contrast_texture, Dissimilarity_texture, Homogeneity_texture, Asm_texture, Max_texture, Entropy_texture
 from skimage.filters.rank import entropy
 from skimage.morphology import disk
+from utils.TransformType import TransformType
 from utils import paths, tools
 import numpy as np
 import yaml
@@ -15,35 +16,38 @@ DESTINO = 'multichannelRGB'
 
 TRANSFORMS_CONFIG = {
     # Texturas (no necesitan parámetros adicionales)
-    1: {"class": Mean_texture(), "required_params": []},
-    2: {"class": Std_texture(), "required_params": []},
-    3: {"class": Contrast_texture(), "required_params": []},
-    4: {"class": Dissimilarity_texture(), "required_params": []},
-    5: {"class": Homogeneity_texture(), "required_params": []},
-    6: {"class": Asm_texture(), "required_params": []},
-    7: {"class": Max_texture(), "required_params": []},
-    8: {"class": Entropy_texture(), "required_params": []},
+    TransformType.MEAN: {"class": Mean_texture, "required_params": []},
+    TransformType.STD: {"class": Std_texture, "required_params": []},
+    TransformType.CONTRAST: {"class": Contrast_texture, "required_params": []},
+    TransformType.DISSIMILARITY: {"class": Dissimilarity_texture, "required_params": []},
+    TransformType.HOMOGENEITY: {"class": Homogeneity_texture, "required_params": []},
+    TransformType.ASM: {"class": Asm_texture, "required_params": []},
+    TransformType.MAX: {"class": Max_texture, "required_params": []},
+    TransformType.ENTROPY: {"class": Entropy_texture, "required_params": []},
     
     # Binarizaciones (necesitan kernel y morph)
-    20: {"class": Otsu_binarization(), "required_params": ["kernel", "morph"]},
-    21: {"class": Spline_binarization(), "required_params": ["kernel", "morph"]},
+    TransformType.OTSU: {"class": Otsu_binarization, "required_params": ["kernel", "morph"]},
+    TransformType.SPLINE: {"class": Spline_binarization, "required_params": ["kernel", "morph"]},
 }
 
-def get_transform(transform_id, **kwargs):
+def get_transform(transform_type, **kwargs):
     """Obtiene transformación y valida parámetros"""
-    if transform_id not in TRANSFORMS_CONFIG:
-        raise ValueError(f"transform_id {transform_id} no existe")
-    
-    config = TRANSFORMS_CONFIG[transform_id]
-    required = config["required_params"]
-    
-    # Validar que estén todos los parámetros requeridos
-    for param in required:
-        if param not in kwargs:
-            raise ValueError(f"Transform {transform_id} requiere el parámetro '{param}'")
-    
-    return config["class"]
 
+    if transform_type not in TRANSFORMS_CONFIG:
+        raise ValueError(f"transform_id {transform_type} no existe")
+
+    config = TRANSFORMS_CONFIG[transform_type]
+    required = config["required_params"]
+
+    # Validar parámetros requeridos
+    missing = [p for p in required if p not in kwargs]
+    if missing:
+        raise ValueError(
+            f"Transform {transform_type} requiere: {missing}"
+        )
+
+    # Crear instancia REAL
+    return config["class"](**kwargs)
 
 def show_all_channels(img_rgb):
     """Muestra cada canal por separado"""
@@ -83,13 +87,18 @@ def show_all_channels_colored(img, assume_bgr=True):
     cv2.destroyAllWindows()
 
 def execute():
-    result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\src\services\2Gy-004.JPG", 0, 6, 20, b_params={'kernel': 3, 'morph': 1})
+    result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\src\services\2Gy-004.JPG",
+                                            r={"type": TransformType.MEAN},
+                                            g={"type": TransformType.ASM},
+                                            b={"type": TransformType.OTSU, "kernel": 3, "morph": 1}
+                                        )
+    
     # result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\data\processed\SynBRG_nc3_ASM_5kFold\split_1\train\images\2Gy-004.JPG", 0, 6, 20, b_params={'kernel': 3, 'morph': 1})
     cv2.imshow("Resultado", result)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def generate_synthetic_RGB_image(img_path, r_id, g_id, b_id, r_params=None, g_params=None, b_params=None):
+def generate_synthetic_RGB_image(img_path, r, g, b):
     """
     Ejemplo:
         generate_synthetic_RGB_image('img.jpg', 
@@ -108,10 +117,27 @@ def generate_synthetic_RGB_image(img_path, r_id, g_id, b_id, r_params=None, g_pa
 
     
     # Aplicar con validación
-    r_channel = get_transform(r_id, **(r_params or {}))(gray) if r_id != 0 else gray
-    g_channel = get_transform(g_id, **(g_params or {}))(gray) if g_id != 0 else gray
-    b_channel = get_transform(b_id, **(b_params or {}))(gray) if b_id != 0 else gray
-    
+    r_transform = get_transform(
+        r["type"],
+        **{k: v for k, v in r.items() if k != "type"}
+    )
+
+    g_transform = get_transform(
+        g["type"],
+        **{k: v for k, v in g.items() if k != "type"}
+    )
+
+    b_transform = get_transform(
+        b["type"],
+        **{k: v for k, v in b.items() if k != "type"}
+    )
+
+    # Aplicar transformaciones
+    r_channel = r_transform(gray)
+    g_channel = g_transform(gray)
+    b_channel = b_transform(gray)
+
+    # Merge final
     return cv2.merge([b_channel, g_channel, r_channel])
     
 
