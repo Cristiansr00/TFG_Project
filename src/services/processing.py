@@ -95,17 +95,23 @@ def show_all_channels_colored(img, assume_bgr=True):
 
 # ELIMINAR
 def execute():
-    result = generate_synthetic_RGB_image(r"C:\Users\crist\Desktop\TFG\Proyecto\Proyecto\src\services\2Gy-004.JPG",
+    result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\src\services\2Gy-004.JPG",
                                             r={"type": TransformType.ORIGINAL},
                                             g={"type": TransformType.ASM},
                                             b={"type": TransformType.OTSU, "kernel": 3, "morph": 1}
                                         )
     
     print(f"El nombre de la transformación es {result[1]}")
-    # result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\data\processed\SynBRG_nc3_ASM_5kFold\split_1\train\images\2Gy-004.JPG", 0, 6, 20, b_params={'kernel': 3, 'morph': 1})
-    # show_all_channels(result[0])
 
     show_all_channels_colored(result[0])
+
+def execute2():
+
+    generate_multichannel_structure("2026-01-18_5-Fold_Cross-val",
+                                        r={"type": TransformType.ORIGINAL},
+                                        g={"type": TransformType.ASM},
+                                        b={"type": TransformType.OTSU, "kernel": 3, "morph": 1}
+                                    )
 
 # Función que genera una imagen con canales RGB sinteticos por transformaciones
 def generate_synthetic_RGB_image(img_path, r, g, b):
@@ -160,88 +166,10 @@ def generate_synthetic_RGB_image(img_path, r, g, b):
     # Merge final
     return cv2.merge([b_channel, g_channel, r_channel]), _build_dataset_name(r_transform,g_transform,b_transform, 0)
 
-# def generate_synthetic_RGB_image(img_path, r, b):
-#  #r -> imagen con textura
-#  #g -> imagen original
-#  #b-> imagen binarizada otsu
-#     img = cv2.imread(img_path)
-
-#     # Transformamos la imagen que puede ser en color a escala de grises
-#     if len(img.shape) == 3 and img.shape[2] == 3:
-#         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#     else:
-#         gray = img
-
-#     r_img = None
-#     r = int(r)
-#     if r == 1:
-#         r_img = fast_glcm_ASM(gray)
-#     elif r == 2:
-#         r_img = fast_glcm_entropy(gray)
-#     else:
-#         raise ValueError("r must be 1 (ASM) or 2 (Entropy)")
-
-#     g_img = gray
-#     b_img = otsu_binarization(gray, b[0], b[1])
-
-#     ## Cambio
-#     ## BGR 
-#     processed_rgb = cv2.merge([g_img, r_img, b_img])
-
-#     return processed_rgb    
-
 
 def _build_dataset_name(r: Transform, g: Transform, b: Transform, folds_num: int):
     return f"SynRGB_{r.get_name()}_{g.get_name()}_{b.get_name()}_{folds_num}kFold"
 
-
-# def generate_multichannel_structure(dataset_name:str, r, b, folds_num:int = 5):
-#     name_destino = _build_dataset_name(int(b[0]), int(b[1]), int(r),  folds_num)
-#     path_destino =f"{paths.DATA_DIR}/processed/{name_destino}"
-#     dataset_path = f"{paths.DATA_DIR}/processed/{dataset_name}"
-#     shutil.copytree(dataset_path, path_destino)
-#         # ---- actualizar YAMLs ----
-#     for root, _, files in os.walk(path_destino):
-#         for file in files:
-#             if file.endswith(".yaml"):
-#                 yaml_path = os.path.join(root, file)
-#                 with open(yaml_path, 'r') as f:
-#                     data = yaml.safe_load(f)
-
-#                 filename = os.path.basename(data['path'])
-#                 data['path'] = f"{path_destino}/{filename}"
-
-#                 with open(yaml_path, 'w') as f:
-#                     yaml.dump(data, f)
-
-#       # ---- CONTAMOS cuántas imágenes habrá en total (para la barra) ----
-#     total_images = 0
-#     for i in range(1, folds_num + 1):
-#         for subset in ['train', 'val', 'test']:
-#             image_dir = f"{path_destino}/split_{i}/{subset}/images"
-#             total_images += len(os.listdir(image_dir))
-
-#     # ================= BARRA DE PROGRESO =================
-#     with tqdm(total=total_images,
-#               desc="Generando RGB sintético",
-#               unit="img") as pbar:
-
-#         # ---- esta función AVANZA la barra ----
-#         def process_split_images(split, subset, image_list):
-#             for img_name in image_list:
-#                 img_path = f"{path_destino}/split_{split}/{subset}/images/{img_name}"
-#                 img_res = generate_synthetic_RGB_image(img_path, r, b)
-#                 cv2.imwrite(img_path, img_res)
-
-#                 pbar.update(1)   # ← AQUÍ se mueve la barra
-
-#         # ---- aquí se recorren folds y subsets ----
-#         for i in range(1, folds_num + 1):
-#             for subset in ['train', 'val', 'test']:
-#                 image_dir = f"{path_destino}/split_{i}/{subset}/images"
-#                 image_list = os.listdir(image_dir)
-#                 process_split_images(i, subset, image_list)
-#     # ====================================================
 
 def generate_multichannel_structure(dataset_name: str, r: dict, g: dict, b: dict, folds_num: int = 5):
     

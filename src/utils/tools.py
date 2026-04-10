@@ -3,17 +3,26 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-KERNELS = {                                   # Kernel size
-    1: np.ones((2, 2), np.uint8),    # 2x2
-    2: np.ones((3, 3), np.uint8),    # 3x3
-    3: np.ones((4, 4), np.uint8),    # 4x4
-    4: np.ones((5, 5), np.uint8)     # 5x5
-}
-MORPHS = {                                    # Kernel morphological filter
-    1: cv2.MORPH_CLOSE,                    # Close
-    2: cv2.MORPH_OPEN                      # Open
+KERNELS = {
+    1: {"name": "2x2", "value": np.ones((2, 2), np.uint8)},
+    2: {"name": "3x3", "value": np.ones((3, 3), np.uint8)},
+    3: {"name": "4x4", "value": np.ones((4, 4), np.uint8)},
+    4: {"name": "5x5", "value": np.ones((5, 5), np.uint8)}
 }
 
+MORPHS = {                                    # Kernel morphological filter
+    1: {"name": "Cierre","value": cv2.MORPH_CLOSE},
+    2: {"name": "Apertura","value": cv2.MORPH_OPEN},
+}
+
+ROJO = "\033[31m"
+VERDE = "\033[32m"
+AMARILLO = "\033[33m"
+AZUL = "\033[34m"
+RESET = "\033[0m"
+
+def color(texto, c):
+    return f"{c}{texto}{RESET}"
 
 
 def limpiar_consola():

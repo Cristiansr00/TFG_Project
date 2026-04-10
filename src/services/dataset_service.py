@@ -1,6 +1,7 @@
 import os
 import shutil
 import zipfile
+from utils import paths
 from sklearn.model_selection import KFold, train_test_split
 from pathlib import Path
 from datetime import date
@@ -105,16 +106,15 @@ def generateFolderStructure(zip_path:str, k_fold_value:int) -> str:
         print(f"Split {n_split} creado con éxito.")
         n_split += 1
 
-def get_datasets(data_dir="data"):
-    data_path = Path(f"{data_dir}/processed")
+def get_datasets():
+    data_path = Path(f"{paths.DATA_DIR}/processed")
 
     if not data_path.exists():
-        raise FileNotFoundError(f"No existe la carpeta {data_dir}")
+        raise FileNotFoundError(f"No existe la carpeta {paths.DATA_DIR}")
 
     datasets = [d.name for d in data_path.iterdir() if d.is_dir()]
 
     return datasets
-
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from services.dataset_service import get_datasets, generateFolderStructure
-from services.processing import generate_multichannel_structure, execute
-from utils.tools import limpiar_consola
+from services.processing import generate_multichannel_structure, execute, execute2
+from utils.tools import limpiar_consola, color, ROJO, VERDE, KERNELS, MORPHS
+from utils.TransformType import get_transformType, print_transform_types
 
 def menu_datasets(error = False):
     limpiar_consola()
@@ -11,7 +12,7 @@ def menu_datasets(error = False):
         opcion = input("Selecciona una opción: ").strip()
         if opcion == "1":
             # extraer_dataset()
-            print(get_datasets())
+            print(color(get_datasets(), ROJO))
             input("\nPulsa ENTER para volver al menú")
             limpiar_consola()
         elif opcion == "2":
@@ -41,28 +42,68 @@ def menu_datasets_options():
     print("0. Volver")
 
 def flujo():
-    execute()    
-    # print(get_datasets())
-    # d = input("Selecciona un dataset")
-
-    # print("1. ASM")
-    # print("2. Entropy")
-
-    # t = input("Selecciona filtro de Texturas")
-
-    # print("Filtro morfologicos para la binarización")
-    # print("1. Apertura")
-    # print("2. Cierre")
-
-    # f = input("Selecciona Filtro para la binarización")
-
-    # print("kernels disponibles")
-    # print("1. 2x2")
-    # print("2. 3x3")
-    # print("3. 4x4")
-    # print("4. 5x5")
-
-    # k = input("Selecciona el kernel")
-
-
+    # execute2()    
+    print(color(get_datasets(), ROJO))
+    dataset = input("Selecciona un dataset")
     
+    transforms = {}
+
+    for c in ["r", "g", "b"]:
+        print(f"Introduce la siguiente información para el canal {c}")
+        transform = select_transform(c)
+        transforms[c] = transform
+
+    print("\n--- RESUMEN DE TRANSFORMACIONES ---")
+    print(f"Dataset: {dataset}")
+    for canal, transform in transforms.items():
+        print(f"Canal {canal.upper()}: {transform}")
+    
+    confirmacion = input("\n¿Deseas continuar? (s/n): ").lower().strip()
+    if confirmacion != "s":
+        print("Operación cancelada")
+        return
+    
+    # Generar estructura con las transformaciones seleccionadas
+    try:
+        dest_path = generate_multichannel_structure(
+            dataset,
+            r=transforms["r"],
+            g=transforms["g"],
+            b=transforms["b"]
+        )
+        print(color(f"✓ Dataset multichannel generado exitosamente {dest_path}", VERDE))
+    except Exception as e:
+        print(color(f"✗ Error al generar dataset: {e}", ROJO))
+
+
+def print_kernels():
+    for numero, dato in KERNELS.items():
+        print(f"{numero}: {dato["name"]}")
+
+
+def print_morphs():
+    for numero, dato in MORPHS.items():
+        print(f"{numero}: {dato["name"]}")
+        
+
+def select_transform(canal):
+    print_transform_types()
+    transform = input(f"Seleccinoa una de las transformaciones para el canal {canal}")
+
+    transform_type = get_transformType(transform)
+    print(f"{transform_type}")
+
+    if transform_type:
+        if transform_type == "Binary":
+            # Preguntamos por el filtro morfologico
+            print_morphs()
+            filter = input(f"Inserta el tipo de filtro")
+            # ask for a kernel and filter
+            print_kernels()
+            kernel = input(f"Inserta el tipo de kernel:")
+
+            return {"type":int(transform), "kernel": int(kernel), "morph": int(filter)}
+    return {"type":int(transform)}
+
+
+
