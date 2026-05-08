@@ -3,7 +3,7 @@ import os
 import shutil
 import cv2
 from transforms.Binarization.BinarizationTransforms import Otsu_binarization, Spline_binarization
-from transforms.Texture.TextureTransforms import Mean_texture, Std_texture, Contrast_texture, Dissimilarity_texture, Homogeneity_texture, Asm_texture, Max_texture, Entropy_texture
+from transforms.Texture.TextureTransforms import Mean_texture, Std_texture, Contrast_texture, Dissimilarity_texture, Homogeneity_texture, Asm_texture, Max_texture, Entropy_texture, Energy_texture
 from transforms.Transform import Original_transform, Transform
 from skimage.filters.rank import entropy
 from skimage.morphology import disk
@@ -28,6 +28,7 @@ TRANSFORMS_CONFIG = {
     TransformType.ASM: {"class": Asm_texture, "required_params": []},
     TransformType.MAX: {"class": Max_texture, "required_params": []},
     TransformType.ENTROPY: {"class": Entropy_texture, "required_params": []},
+    TransformType.ENERGY: {"class": Energy_texture, "required_params": []},
     
     # Binarizaciones (necesitan kernel y morph)
     TransformType.OTSU: {"class": Otsu_binarization, "required_params": ["kernel", "morph"]},
@@ -94,13 +95,16 @@ def show_all_channels_colored(img, assume_bgr=True):
     cv2.destroyAllWindows()
 
 # ELIMINAR
-def execute():
-    result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\src\services\2Gy-004.JPG",
-                                            r={"type": TransformType.ORIGINAL},
-                                            g={"type": TransformType.ASM},
-                                            b={"type": TransformType.OTSU, "kernel": 3, "morph": 1}
-                                        )
+def execute(dataset):
+    # result = generate_synthetic_RGB_image(r"C:\Users\Usuario\Desktop\PROYECTOS\TFG_Project\src\services\2Gy-004.JPG",
+    #                                         r={"type": TransformType.ORIGINAL},
+    #                                         g={"type": TransformType.ASM},
+    #                                         b={"type": TransformType.OTSU, "kernel": 3, "morph": 1}
+    #                                     )
     
+    result = generate_monochannel_structure(dataset,
+                                            t_conf = {"type": TransformType.ASM} )
+
     print(f"El nombre de la transformación es {result[1]}")
 
     show_all_channels_colored(result[0])
@@ -167,9 +171,74 @@ def generate_synthetic_RGB_image(img_path, r, g, b):
     return cv2.merge([b_channel, g_channel, r_channel]), _build_dataset_name(r_transform,g_transform,b_transform, 0)
 
 
-def _build_dataset_name(r: Transform, g: Transform, b: Transform, folds_num: int):
-    return f"SynRGB_{r.get_name()}_{g.get_name()}_{b.get_name()}_{folds_num}kFold"
+def _build_dataset_name(r: Transform, g: Transform = None, b: Transform = None, folds_num: int = 5):
+    if g is None and b is None:
+        return f"SynMono_{r.get_name()}_{folds_num}kFold"
+    else:
+        return f"SynRGB_{r.get_name()}_{g.get_name()}_{b.get_name()}_{folds_num}kFold"
 
+def _contar_imagenes(folds_num: int, path_destino: str):
+    total_images = 0
+    for i in range(1, folds_num + 1):
+        for subset in ["train", "val", "test"]:
+            img_dir = os.path.join(path_destino, f"split_{i}", subset, "images")
+            if os.path.isdir(img_dir):
+                total_images += len([n for n in os.listdir(img_dir)
+                                     if n.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff"))])
+    return total_images
+
+def _update_yaml(path_destino):
+    for root, _, files in os.walk(path_destino):
+        for file in files:
+            if not file.endswith(".yaml"):
+                continue
+            yaml_path = os.path.join(root, file)
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict) and "path" in data:
+                filename = os.path.basename(data["path"])
+                data["path"] = os.path.join(path_destino, filename)
+                with open(yaml_path, "w", encoding="utf-8") as f:
+                    yaml.dump(data, f)
+
+
+def generate_monochannel_structure(dataset_name: str, t_conf: dict, folds_num: int = 5):
+    t_conf_transform = get_transform(t_conf["type"], **{k: v for k, v in t_conf.items() if k != "type"})
+    name_destino = _build_dataset_name(t_conf_transform, folds_num = folds_num)
+
+    path_origen = f"{paths.DATA_DIR}/processed/{dataset_name}"
+    path_destino = f"{paths.DATA_DIR}/processed/{name_destino}"
+
+    if os.path.exists(path_destino):
+        shutil.rmtree(path_destino)
+    shutil.copytree(path_origen, path_destino)
+
+    _update_yaml(path_destino)
+
+    total_images = _contar_imagenes(folds_num, path_destino)
+
+    with tqdm(total=total_images, desc="Generando Monocanal sintético", unit="img") as pbar:
+        for i in range(1, folds_num + 1):
+            for subset in ["train", "val", "test"]:
+                img_dir = os.path.join(path_destino, f"split_{i}", subset, "images")
+                if not os.path.isdir(img_dir):
+                    continue
+                for img_name in os.listdir(img_dir):
+                    if not img_name.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff")):
+                        continue
+                    img_path = os.path.join(img_dir, img_name)
+                    img = cv2.imread(img_path)
+                    if img is None:
+                        pbar.update(1)
+                        continue
+
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if (img.ndim == 3 and img.shape[2] == 3) else img
+
+                    out = t_conf_transform(gray)
+                    cv2.imwrite(img_path, out)
+                    pbar.update(1)
+
+    return path_destino
 
 def generate_multichannel_structure(dataset_name: str, r: dict, g: dict, b: dict, folds_num: int = 5):
     
@@ -188,27 +257,10 @@ def generate_multichannel_structure(dataset_name: str, r: dict, g: dict, b: dict
     shutil.copytree(path_origen, path_destino)
 
     # actualizar YAMLs con la nueva ruta
-    for root, _, files in os.walk(path_destino):
-        for file in files:
-            if not file.endswith(".yaml"):
-                continue
-            yaml_path = os.path.join(root, file)
-            with open(yaml_path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-            if isinstance(data, dict) and "path" in data:
-                filename = os.path.basename(data["path"])
-                data["path"] = os.path.join(path_destino, filename)
-                with open(yaml_path, "w", encoding="utf-8") as f:
-                    yaml.dump(data, f)
+    _update_yaml(path_destino)
 
     # contar imágenes
-    total_images = 0
-    for i in range(1, folds_num + 1):
-        for subset in ["train", "val", "test"]:
-            img_dir = os.path.join(path_destino, f"split_{i}", subset, "images")
-            if os.path.isdir(img_dir):
-                total_images += len([n for n in os.listdir(img_dir)
-                                     if n.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff"))])
+    total_images = _contar_imagenes(folds_num, path_destino)
 
     with tqdm(total=total_images, desc="Generando RGB sintético", unit="img") as pbar:
         for i in range(1, folds_num + 1):

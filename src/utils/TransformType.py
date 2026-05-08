@@ -13,6 +13,7 @@ class TransformType(IntEnum):
     ASM = 6
     MAX = 7
     ENTROPY = 8
+    ENERGY = 9
 
     # Binarización
     OTSU = 20
@@ -33,7 +34,7 @@ def get_transformType(transform):
             return "Original"
         elif transform in [TransformType.MEAN, TransformType.STD, TransformType.CONTRAST, 
                            TransformType.DISSIMILARITY, TransformType.HOMOGENEITY, 
-                           TransformType.ASM, TransformType.MAX, TransformType.ENTROPY]:
+                           TransformType.ASM, TransformType.MAX, TransformType.ENTROPY, TransformType.ENERGY]:
             return "Textura"
         elif transform in [TransformType.OTSU, TransformType.SPLINE]:
             return "Binary"
@@ -52,7 +53,7 @@ def print_transform_types():
     texturas = [
         TransformType.MEAN, TransformType.STD, TransformType.CONTRAST,
         TransformType.DISSIMILARITY, TransformType.HOMOGENEITY,
-        TransformType.ASM, TransformType.MAX, TransformType.ENTROPY
+        TransformType.ASM, TransformType.MAX, TransformType.ENTROPY, TransformType.ENERGY
     ]
     for transform in texturas:
         print(f"  {transform.value}: {transform.name}")

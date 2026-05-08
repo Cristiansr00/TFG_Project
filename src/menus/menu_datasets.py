@@ -1,5 +1,5 @@
 from services.dataset_service import get_datasets, generateFolderStructure
-from services.processing import generate_multichannel_structure, execute, execute2
+from services.processing import generate_monochannel_structure, generate_multichannel_structure
 from utils.tools import limpiar_consola, color, ROJO, VERDE, KERNELS, MORPHS
 from utils.TransformType import get_transformType, print_transform_types
 
@@ -42,38 +42,63 @@ def menu_datasets_options():
     print("0. Volver")
 
 def flujo():
-    # execute2()    
     print(color(get_datasets(), ROJO))
-    dataset = input("Selecciona un dataset")
-    
-    transforms = {}
+    dataset = input("Selecciona un dataset: ")
 
-    for c in ["r", "g", "b"]:
-        print(f"Introduce la siguiente información para el canal {c}")
-        transform = select_transform(c)
-        transforms[c] = transform
+    print("\n¿Qué tipo de dataset deseas generar?")
+    print("  1. Monocanal")
+    print("  2. Multicanal (RGB)")
+    tipo = input("Selecciona una opción (1/2): ").strip()
 
-    print("\n--- RESUMEN DE TRANSFORMACIONES ---")
-    print(f"Dataset: {dataset}")
-    for canal, transform in transforms.items():
-        print(f"Canal {canal.upper()}: {transform}")
-    
-    confirmacion = input("\n¿Deseas continuar? (s/n): ").lower().strip()
-    if confirmacion != "s":
-        print("Operación cancelada")
-        return
-    
-    # Generar estructura con las transformaciones seleccionadas
-    try:
-        dest_path = generate_multichannel_structure(
-            dataset,
-            r=transforms["r"],
-            g=transforms["g"],
-            b=transforms["b"]
-        )
-        print(color(f"✓ Dataset multichannel generado exitosamente {dest_path}", VERDE))
-    except Exception as e:
-        print(color(f"✗ Error al generar dataset: {e}", ROJO))
+    if tipo == "1":
+        print("Introduce la siguiente información para el canal único")
+        transform = select_transform("mono")
+
+        print("\n--- RESUMEN DE TRANSFORMACIONES ---")
+        print(f"Dataset: {dataset}")
+        print(f"Canal único: {transform}")
+
+        confirmacion = input("\n¿Deseas continuar? (s/n): ").lower().strip()
+        if confirmacion != "s":
+            print("Operación cancelada")
+            return
+
+        try:
+            dest_path = generate_monochannel_structure(dataset, transform)
+            print(color(f"✓ Dataset monocanal generado exitosamente {dest_path}", VERDE))
+        except Exception as e:
+            print(color(f"✗ Error al generar dataset: {e}", ROJO))
+
+    elif tipo == "2":
+        transforms = {}
+        for c in ["r", "g", "b"]:
+            print(f"Introduce la siguiente información para el canal {c}")
+            transform = select_transform(c)
+            transforms[c] = transform
+
+        print("\n--- RESUMEN DE TRANSFORMACIONES ---")
+        print(f"Dataset: {dataset}")
+        for canal, transform in transforms.items():
+            print(f"Canal {canal.upper()}: {transform}")
+
+        confirmacion = input("\n¿Deseas continuar? (s/n): ").lower().strip()
+        if confirmacion != "s":
+            print("Operación cancelada")
+            return
+
+        try:
+            dest_path = generate_multichannel_structure(
+                dataset,
+                r=transforms["r"],
+                g=transforms["g"],
+                b=transforms["b"]
+            )
+            print(color(f"✓ Dataset multichannel generado exitosamente {dest_path}", VERDE))
+        except Exception as e:
+            print(color(f"✗ Error al generar dataset: {e}", ROJO))
+
+    else:
+        print(color("Opción no válida", ROJO))
 
 
 def print_kernels():

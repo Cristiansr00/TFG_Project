@@ -206,3 +206,18 @@ class Entropy_texture(Transform):
     
     def get_name(self): 
         return "entropy"
+
+
+class Energy_texture(Transform):
+
+    def __call__(self, img, vmin=0, vmax=255, levels=8, ks=5, distance=1.0, angle=0.0):
+        glcm = fast_glcm(img, vmin, vmax, levels, ks, distance, angle)
+        pnorm = glcm / np.sum(glcm, axis=(0,1)) + 1./ks**2
+        energy = np.sum(pnorm**2, axis=(0,1))
+        energy = cv2.normalize(energy, None, 0, 255, cv2.NORM_MINMAX)
+        energy = energy.astype(np.uint8)
+        
+        return energy
+    
+    def get_name(self):
+        return "energy"

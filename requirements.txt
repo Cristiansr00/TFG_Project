@@ -4,3 +4,4 @@ ipykernel
 scikit-learn
 scikit-image
 tqdm
+openpyxl
