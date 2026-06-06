@@ -1,4 +1,5 @@
 from enum import IntEnum
+from utils.tools import mostrar_seccion
 
 class TransformType(IntEnum):
     # Original
@@ -44,21 +45,17 @@ def get_transformType(transform):
 
 def print_transform_types():
     """Imprime todas las transformaciones disponibles organizadas por categoría"""
-    print("\n--- TRANSFORMACIONES DISPONIBLES ---\n")
-    
-    print("ORIGINAL:")
-    print(f"  {TransformType.ORIGINAL.value}: {TransformType.ORIGINAL.name}")
-    
-    print("\nTEXTURAS:")
+    mostrar_seccion("Transformaciones disponibles")
+    print(f"  {TransformType.ORIGINAL.value}. {TransformType.ORIGINAL.name}")
+
     texturas = [
         TransformType.MEAN, TransformType.STD, TransformType.CONTRAST,
         TransformType.DISSIMILARITY, TransformType.HOMOGENEITY,
         TransformType.ASM, TransformType.MAX, TransformType.ENTROPY, TransformType.ENERGY
     ]
     for transform in texturas:
-        print(f"  {transform.value}: {transform.name}")
-    
-    print("\nBINARIZACIÓN:")
+        print(f"  {transform.value}. {transform.name}")
+
     binarizaciones = [TransformType.OTSU, TransformType.SPLINE]
     for transform in binarizaciones:
-        print(f"  {transform.value}: {transform.name}")
+        print(f"  {transform.value}. {transform.name}")

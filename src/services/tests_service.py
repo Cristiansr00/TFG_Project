@@ -16,6 +16,43 @@ def obtener_split_por_indice(splits_dir, i):
         if d.is_dir() and patron in d.name:
             return d
 
+    raise FileNotFoundError(f"No se encontro el split {i} en {splits_dir}")
+
+
+def compare_consolidated_results(excel_file=None, metric="F1-Score", metric_type=None, limit=10):
+    """
+    Lee el Excel consolidado y devuelve los mejores resultados por métrica.
+    """
+    excel_file = excel_file or f"{paths.TESTS_DIR}/consolidated_results.xlsx"
+    excel_path = Path(excel_file)
+    if not excel_path.exists():
+        raise FileNotFoundError(f"No existe el archivo consolidado: {excel_path}")
+
+    wb = load_workbook(excel_path, data_only=True)
+    ws = wb.active
+    headers = [cell.value for cell in ws[1]]
+    if metric not in headers:
+        raise ValueError(f"La métrica '{metric}' no existe en {excel_path}")
+
+    metric_col = headers.index(metric)
+    results = []
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not any(row):
+            continue
+        if metric_type and row[1] != metric_type:
+            continue
+        value = row[metric_col]
+        if not isinstance(value, (int, float)):
+            continue
+        results.append({
+            "configuration": row[0],
+            "metric_type": row[1],
+            "value": value,
+        })
+
+    results.sort(key=lambda item: item["value"], reverse=True)
+    return results[:limit]
+
 
 def save_to_excel(excel_file, configuration, tmodel_name, dataset_name, metrics_data):
     """
@@ -56,7 +93,7 @@ def save_to_excel(excel_file, configuration, tmodel_name, dataset_name, metrics_
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center")
     
-    # Buscar fila existente con el mismo modelo
+    # Si la configuración ya existe, se actualiza en vez de duplicarla.
     config_name = configuration if configuration else tmodel_name
     detection_row_index = None
     classification_row_index = None
@@ -166,15 +203,14 @@ def testAndsave(configuration, tmodel_name, dataset_name, nFolds):
     csv_file_path = Path(paths.TESTS_DIR) / tmodel_name / dataset_name / "metrics_result.csv"
     
     # Comprueba si el archivo CSV ya existe y si la configuración ya está presente (no es necesario realmente)
+    config_name = configuration if configuration else tmodel_name
+
     if os.path.exists(csv_file):
         with open(csv_file, mode='r') as file:
             reader = csv.reader(file)
             for row in reader:
-                if configuration == "" and row[0] == "tmodel_name":
-                    print(f"Configuration 'tmodel_name' already exists. Skipping.")
-                    return
-                elif row[0] == configuration:
-                    print(f"Configuration '{configuration}' already exists. Skipping.")
+                if row and row[0] == config_name:
+                    print(f"La configuración '{config_name}' ya existe. Se omite la evaluación.")
                     return
     else:
         csv_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -188,7 +224,7 @@ def testAndsave(configuration, tmodel_name, dataset_name, nFolds):
     FP_c = 0
     FN_c = 0
     
-    # Listas para guardar valores de cada fold
+    # Guardamos valores por fold para calcular medias y desviaciones típicas.
     TP_d_values = []
     FP_d_values = []
     FN_d_values = []
@@ -228,9 +264,9 @@ def testAndsave(configuration, tmodel_name, dataset_name, nFolds):
             split="test"
         )
         confMatrix = results.confusion_matrix.matrix
-        print(f"Confusion Matrix for fold {j}:\n{confMatrix}")
+        print(f"Matriz de confusión para el fold {j}:\n{confMatrix}")
         
-        # Extraer las métricas de la matriz de confusión para este fold
+        # La matriz incluye clases y fondo; se separan métricas de detección y clasificación.
         tp_d_fold = confMatrix[0][0] + confMatrix[0][1] + confMatrix[1][0] + confMatrix[1][1]
         fp_d_fold = confMatrix[0][2] + confMatrix[1][2]
         fn_d_fold = confMatrix[2][0] + confMatrix[2][1]

@@ -38,6 +38,7 @@ TRANSFORMS_CONFIG = {
 # Función que devuelve la clase de la transformación elegida
 def get_transform(transform_type, **kwargs):
     """Obtiene transformación y valida parámetros"""
+    transform_type = TransformType(transform_type)
 
     if transform_type not in TRANSFORMS_CONFIG:
         raise ValueError(f"transform_id {transform_type} no existe")
@@ -138,6 +139,8 @@ def generate_synthetic_RGB_image(img_path, r, g, b):
                                      b={"type": TransformType.OTSU, "kernel": 3, "morph": 1})
     """
     img = cv2.imread(img_path)
+    if img is None:
+        raise FileNotFoundError(f"No se pudo cargar la imagen: {img_path}")
 
     
     if len(img.shape) == 3 and img.shape[2] == 3:
@@ -177,6 +180,26 @@ def _build_dataset_name(r: Transform, g: Transform = None, b: Transform = None, 
     else:
         return f"SynRGB_{r.get_name()}_{g.get_name()}_{b.get_name()}_{folds_num}kFold"
 
+
+def _get_folds_num(dataset_path: str):
+    # El número de folds se infiere del dataset base para no pedirlo dos veces.
+    split_numbers = sorted(
+        int(name.removeprefix("split_"))
+        for name in os.listdir(dataset_path)
+        if os.path.isdir(os.path.join(dataset_path, name))
+        and name.startswith("split_")
+        and name.removeprefix("split_").isdigit()
+    )
+    if not split_numbers:
+        raise ValueError(f"No se encontraron carpetas split_N en {dataset_path}")
+
+    expected = list(range(1, max(split_numbers) + 1))
+    if split_numbers != expected:
+        raise ValueError(f"Los splits del dataset no son consecutivos: {split_numbers}")
+
+    return len(split_numbers)
+
+
 def _contar_imagenes(folds_num: int, path_destino: str):
     total_images = 0
     for i in range(1, folds_num + 1):
@@ -188,6 +211,7 @@ def _contar_imagenes(folds_num: int, path_destino: str):
     return total_images
 
 def _update_yaml(path_destino):
+    # Al duplicar un dataset, cada data.yaml debe apuntar a la nueva carpeta.
     for root, _, files in os.walk(path_destino):
         for file in files:
             if not file.endswith(".yaml"):
@@ -202,11 +226,12 @@ def _update_yaml(path_destino):
                     yaml.dump(data, f)
 
 
-def generate_monochannel_structure(dataset_name: str, t_conf: dict, folds_num: int = 5):
+def generate_monochannel_structure(dataset_name: str, t_conf: dict):
     t_conf_transform = get_transform(t_conf["type"], **{k: v for k, v in t_conf.items() if k != "type"})
-    name_destino = _build_dataset_name(t_conf_transform, folds_num = folds_num)
 
     path_origen = f"{paths.DATA_DIR}/processed/{dataset_name}"
+    folds_num = _get_folds_num(path_origen)
+    name_destino = _build_dataset_name(t_conf_transform, folds_num=folds_num)
     path_destino = f"{paths.DATA_DIR}/processed/{name_destino}"
 
     if os.path.exists(path_destino):
@@ -217,6 +242,7 @@ def generate_monochannel_structure(dataset_name: str, t_conf: dict, folds_num: i
 
     total_images = _contar_imagenes(folds_num, path_destino)
 
+    # Se procesa la copia para conservar intacto el dataset original.
     with tqdm(total=total_images, desc="Generando Monocanal sintético", unit="img") as pbar:
         for i in range(1, folds_num + 1):
             for subset in ["train", "val", "test"]:
@@ -240,16 +266,16 @@ def generate_monochannel_structure(dataset_name: str, t_conf: dict, folds_num: i
 
     return path_destino
 
-def generate_multichannel_structure(dataset_name: str, r: dict, g: dict, b: dict, folds_num: int = 5):
+def generate_multichannel_structure(dataset_name: str, r: dict, g: dict, b: dict):
     
-        # preparar transformadores UNA vez
+    # Preparar transformadores una sola vez evita recrearlos para cada imagen.
     r_transform = get_transform(r["type"], **{k: v for k, v in r.items() if k != "type"})
     g_transform = get_transform(g["type"], **{k: v for k, v in g.items() if k != "type"})
     b_transform = get_transform(b["type"], **{k: v for k, v in b.items() if k != "type"})
 
-    name_destino = _build_dataset_name(r_transform, g_transform, b_transform, folds_num)
-    
     path_origen = f"{paths.DATA_DIR}/processed/{dataset_name}"
+    folds_num = _get_folds_num(path_origen)
+    name_destino = _build_dataset_name(r_transform, g_transform, b_transform, folds_num)
     path_destino = f"{paths.DATA_DIR}/processed/{name_destino}"
 
     if os.path.exists(path_destino):
@@ -289,4 +315,9 @@ def generate_multichannel_structure(dataset_name: str, r: dict, g: dict, b: dict
     return path_destino
 
 if __name__ == "__main__":
-    generate_multichannel_structure('./dataset/2026-01-18_5-Fold_Cross-val')
+    generate_multichannel_structure(
+        "2026-01-18_5-Fold_Cross-val",
+        r={"type": TransformType.ORIGINAL},
+        g={"type": TransformType.ASM},
+        b={"type": TransformType.OTSU, "kernel": 3, "morph": 1},
+    )

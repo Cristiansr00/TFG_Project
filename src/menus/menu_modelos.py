@@ -1,58 +1,78 @@
 from services.dataset_service import get_datasets
-from services.models_service import get_YOLO_models
+from services.models_service import get_YOLO_models, get_trained_models, resolve_yolo_model
 from services.training import training_model
-from utils import paths
-from utils.tools import limpiar_consola
+from utils.tools import (
+    elegir_opcion,
+    leer_opcion,
+    listar,
+    mostrar_error,
+    mostrar_opciones,
+    mostrar_seccion,
+    mostrar_titulo,
+    pausar,
+)
 
 
 def menu_modelos():
     while True:
-        # limpiar_consola()
         menu_modelos_options()
-
-        opcion = input("Selecciona una opción: ").strip()
+        opcion = leer_opcion()
 
         if opcion == "1":
-            # entrenar_modelo()
-            print("entrenar_modelo")
-            print(get_YOLO_models())
-            yolo_model = input("Introduce el modelo YOLO a utilizar: ").strip()
-            print("Tambien puedes utilizar otros modelos no descargados")
-            flujo(yolo_model=yolo_model)
+            modelos = get_trained_models()
+            if not modelos:
+                print("\nNo hay modelos entrenados en 'models/trained'.")
+            else:
+                mostrar_seccion("Modelos entrenados disponibles")
+                listar(modelos)
+
+            pausar("Pulsa ENTER para volver al menú...")
         elif opcion == "2":
-            # cargar_modelo()
-            print("cargar_modelo")
-        elif opcion == "3":
-            # listar_modelos()
-            print("listar_modelos")
+            mostrar_seccion("Modelos YOLO instalados")
+            listar(get_YOLO_models())
+            yolo_model = input(
+                "\nIntroduce el modelo YOLO a utilizar. Puedes escribir uno no instalado: "
+            ).strip()
+            # El entrenamiento puede tardar mucho; validamos entradas antes de lanzarlo.
+            try:
+                flujo(yolo_model=yolo_model)
+            except ValueError as e:
+                mostrar_error(str(e))
+                pausar()
         elif opcion == "0":
             break
         else:
-            print("[ERROR] Opción no válida")
+            mostrar_error("Opción no válida. Por favor, selecciona una opción válida.")
+            pausar()
+
 
 def menu_modelos_options():
-    print("\n--- MENÚ MODELOS ---")
-    print("1. Entrenar modelo")
-    print("2. Cargar modelo")
-    print("3. Listar modelos")
-    print("0. Volver")
+    mostrar_titulo("MENÚ MODELOS")
+    mostrar_opciones([
+        ("1", "Listar modelos entrenados"),
+        ("2", "Entrenar modelo"),
+        ("0", "Volver"),
+    ])
 
 
-def flujo(yolo_model:str="yolov8x"):
-    # print("Selecciona el modelo a entrenar:")
-    # print("1. Modelo A")
-    # print("2. Modelo B")
-    # m = input("Introduce el número del modelo:")
+def flujo(yolo_model: str = "yolov8x"):
+    mostrar_seccion("Selección de dataset")
+    datasets = get_datasets()
+    if not datasets:
+        print("\nNo hay datasets en 'data/processed'.")
+        return
 
-    print("Selecciona el dataset a utilizar:")
-    print(get_datasets())
-    dataset = input("Introduce el número del dataset:")
-    print("Introduce el número de epochs:")
-    e = input()
-    print("Introduce el numero de folds aprendizaje:")
-    lr = input()
+    listar(datasets)
+    dataset = elegir_opcion(datasets, "Introduce el número o nombre del dataset: ")
 
-    print(f"Entrenando modelo models/YOLO/{yolo_model}.pt con dataset {dataset}, epochs: {e}, learning rate: {lr}")
-    
-    # yolo_model_exists(f"{paths.MODELS_YOLO_DIR}/{yolo_model}.pt", yolo_model)
-    training_model(e, lr, dataset, yolo_model=f"{paths.MODELS_YOLO_DIR}/{yolo_model}.pt")
+    epochs = input("Introduce el número de epochs: ").strip()
+    folds = input("Introduce el número de folds de aprendizaje: ").strip()
+    # Se resuelve a ruta local si el .pt existe; si no, Ultralytics intentará resolverlo.
+    resolved_model = resolve_yolo_model(yolo_model)
+
+    mostrar_seccion("Resumen del entrenamiento")
+    print(f"Modelo: {resolved_model}")
+    print(f"Dataset: {dataset}")
+    print(f"Epochs: {epochs}")
+    print(f"Folds: {folds}")
+    training_model(epochs, folds, dataset, yolo_model=resolved_model)

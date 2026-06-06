@@ -33,9 +33,12 @@ def training_session(project, yaml_path, epochs, yolo_model):
         print(f"La ruta {project} ya existe. No se realizará el entrenamiento.")
         return
     
+    # Usar GPU cuando esté disponible; si no, mantener la app usable en CPU.
+    device = 0 if torch.cuda.is_available() else "cpu"
     model = YOLO(model=yolo_model, task="detect")
     print(f"Entrenando modelo YOLO con dataset en {yaml_path} durante {epochs} epochs.")
-    model.to('cuda')
+    if torch.cuda.is_available():
+        model.to("cuda")
     results1 = model.train(
         data = yaml_path,
         epochs = epochs,
@@ -43,7 +46,7 @@ def training_session(project, yaml_path, epochs, yolo_model):
         batch = 4,
         project = project,
         name = "train",
-        device=0,
+        device=device,
     )              
      # batch = 8 es necesario porque la GPU del server no soporta superior
     
@@ -62,7 +65,7 @@ def training_session(project, yaml_path, epochs, yolo_model):
         f.write(f" FP = {int(results1.confusion_matrix.matrix[1][0])}\n")  # Falso positivo (clase 1 predicho como 0)
         f.write(f" FN = {int(results1.confusion_matrix.matrix[0][1])}\n")  # Falso negativo (clase 0 predicho como 1)
 
-        f.write("Otras metricas:\n")
+        f.write("Otras métricas:\n")
         f.write(" Precision media para todas las clases: {}\n".format(results1.box.all_ap))
         f.write(" Precision media: {}\n".format(results1.box.ap))
         f.write(" Precision media a IoU=0.50: {}\n".format(results1.box.ap50))
@@ -79,5 +82,5 @@ def training_session(project, yaml_path, epochs, yolo_model):
 
 if __name__ == "__main__":
     print(torch.cuda.is_available())
-    print(torch.cuda.get_device_name(0))
-    training_model(100, 5, 'multichannel') 
+    if torch.cuda.is_available():
+        print(torch.cuda.get_device_name(0))
