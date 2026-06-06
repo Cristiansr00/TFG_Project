@@ -1,14 +1,13 @@
 from .menu_modelos import menu_modelos
 from .menu_metricas import menu_metricas
 from .menu_datasets import menu_datasets
-from utils.tools import limpiar_consola
+from utils.tools import limpiar_consola, color, ROJO
+
 
 def menu_principal():
     while True:
-        limpiar_consola()
         menu_principal_options()
-
-        opcion = input("Selecciona una opción: ").strip()
+        opcion = input("\nSelecciona una opcion: ").strip()
 
         if opcion == "1":
             menu_modelos()
@@ -17,16 +16,19 @@ def menu_principal():
         elif opcion == "3":
             menu_metricas()
         elif opcion == "0":
-            print("\nSaliendo del programa 👋")
+            print("\nSaliendo del programa")
             break
         else:
-            print("[ERROR] Opción no válida")
+            print(color("\n[ERROR] Opcion no valida. Por favor, selecciona una opcion valida.", ROJO))
+            input("Presiona Enter para continuar...")
+
 
 def menu_principal_options():
-    print("\n" + "="*40)
-    print(" MENÚ PRINCIPAL ")
-    print("="*40)
-    print("1. Gestión de modelos")
-    print("2. Gestión de datasets")
-    print("3. Métricas y evaluación")
+    limpiar_consola()
+    print("\n" + "=" * 40)
+    print(" " * 13 + "MENU PRINCIPAL")
+    print("=" * 40 + "\n")
+    print("1. Gestion de modelos")
+    print("2. Gestion de datasets")
+    print("3. Metricas y evaluacion")
     print("0. Salir")
