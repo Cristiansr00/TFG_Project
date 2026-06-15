@@ -93,12 +93,15 @@ class Spline_binarization(Transform):
 
             isfloor = ind  # x index where i_th floor can be found
 
-            while y_spl[isfloor] > 0:  # is floor (end of the mountain whose peak is y_spl[ind])
+            while isfloor < len(y_spl) - 1 and y_spl[isfloor] > 0:  # is floor (end of the mountain whose peak is y_spl[ind])
                 isfloor += 1
 
             if isfloor - ind < (n_samples * 10 / 256):
                 isfloor += (n_samples * 10 / 256)
                 isfloor = int(isfloor)
+            
+            # Asegurar que isfloor no excede los límites del array
+            isfloor = min(isfloor, len(x_spl) - 1)
             x_floors.append(x_spl[isfloor])
 
         goodthd = x_floors[y_peaks.index(

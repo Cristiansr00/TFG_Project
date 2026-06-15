@@ -39,7 +39,7 @@ El menu principal permite:
 
 1. Gestionar modelos entrenados y lanzar nuevos entrenamientos.
 2. Listar datasets, crear estructura k-fold desde un `.zip` y generar datasets sinteticos.
-3. Evaluar modelos y comparar resultados consolidados por F1-score.
+3. Evaluar modelos, comparar resultados consolidados por F1-score y ejecutar inferencia sobre imagenes.
 
 ## Flujo recomendado
 
@@ -49,9 +49,11 @@ El menu principal permite:
 4. Entrena desde el menu de modelos indicando dataset, epochs y folds.
 5. Evalua desde el menu de metricas.
 6. Consulta la comparacion de modelos para ver los mejores F1 de deteccion y clasificacion.
+7. Usa la inferencia sobre imagen para generar una copia anotada con cajas, clase y probabilidad.
 
 ## Notas
 
 - Las rutas internas se resuelven desde la raiz del proyecto, no desde el directorio actual.
 - La evaluacion guarda resultados en CSV por modelo y en `tests/consolidated_results.xlsx`.
+- La inferencia sobre imagen guarda por defecto en `tests/inference/<modelo>`.
 - El entrenamiento usa CUDA si esta disponible; en caso contrario usa CPU.

@@ -7,4 +7,3 @@ scikit-learn
 tqdm
 openpyxl
 PyYAML
-ipykernel

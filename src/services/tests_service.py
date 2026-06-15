@@ -4,9 +4,124 @@ from pathlib import Path
 from ultralytics import YOLO
 import utils.paths as paths
 import numpy as np
+import cv2
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 RUTA_METRICAS = 'tests'
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+CLASS_COLORS = {
+    "NoDicentrico": (45, 45, 220),
+    "Dicentrico": (70, 180, 70),
+}
+
+
+def get_model_weight_files(tmodel_name):
+    """
+    Devuelve los pesos best.pt disponibles dentro de un modelo entrenado.
+    """
+    model_dir = Path(paths.MODELS_DIR) / tmodel_name
+    if not model_dir.exists():
+        raise FileNotFoundError(f"No existe el modelo entrenado: {model_dir}")
+
+    weights = sorted(
+        model_dir.rglob("best.pt"),
+        key=lambda path: str(path).lower(),
+    )
+    if not weights:
+        raise FileNotFoundError(f"No se encontraron pesos best.pt en {model_dir}")
+
+    return weights
+
+
+def _build_default_inference_output(image_path, model_name):
+    output_dir = Path(paths.TESTS_DIR) / "inference" / model_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir / f"{image_path.stem}_inference.jpg"
+
+
+def _class_color(class_name):
+    return CLASS_COLORS.get(class_name, (220, 170, 40))
+
+
+def _draw_label(image, text, x1, y1, color):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.55
+    thickness = 1
+    padding = 4
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    label_y1 = max(0, y1 - text_height - baseline - padding * 2)
+    label_y2 = min(image.shape[0], label_y1 + text_height + baseline + padding * 2)
+    label_x2 = min(image.shape[1], x1 + text_width + padding * 2)
+
+    cv2.rectangle(image, (x1, label_y1), (label_x2, label_y2), color, -1)
+    cv2.putText(
+        image,
+        text,
+        (x1 + padding, label_y2 - baseline - padding),
+        font,
+        font_scale,
+        (255, 255, 255),
+        thickness,
+        cv2.LINE_AA,
+    )
+
+
+def run_image_inference(tmodel_name, weights_path, image_path, output_path=None, confidence=0.25):
+    """
+    Aplica inferencia a una imagen y guarda una copia con cajas, clase y probabilidad.
+    """
+    image_path = Path(image_path)
+    weights_path = Path(weights_path)
+
+    if not image_path.exists():
+        raise FileNotFoundError(f"No existe la imagen: {image_path}")
+    if image_path.suffix.lower() not in IMAGE_EXTENSIONS:
+        raise ValueError(f"Formato de imagen no soportado: {image_path.suffix}")
+    if not weights_path.exists():
+        raise FileNotFoundError(f"No existen los pesos: {weights_path}")
+
+    output_path = Path(output_path) if output_path else _build_default_inference_output(image_path, tmodel_name)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    image = cv2.imread(str(image_path))
+    if image is None:
+        raise ValueError(f"No se pudo leer la imagen: {image_path}")
+
+    model = YOLO(str(weights_path))
+    results = model.predict(source=str(image_path), conf=float(confidence), device="cpu", verbose=False)
+    result = results[0]
+    names = result.names or getattr(model, "names", {})
+    annotated = image.copy()
+    detections = []
+
+    for box in result.boxes:
+        class_id = int(box.cls[0])
+        probability = float(box.conf[0])
+        class_name = names.get(class_id, str(class_id)) if isinstance(names, dict) else str(class_id)
+        x1, y1, x2, y2 = [int(round(value)) for value in box.xyxy[0].tolist()]
+        x1 = max(0, min(x1, annotated.shape[1] - 1))
+        y1 = max(0, min(y1, annotated.shape[0] - 1))
+        x2 = max(0, min(x2, annotated.shape[1] - 1))
+        y2 = max(0, min(y2, annotated.shape[0] - 1))
+
+        color = _class_color(class_name)
+        label = f"{probability:.2f}"
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+        _draw_label(annotated, label, x1, y1, color)
+        detections.append({
+            "class": class_name,
+            "confidence": probability,
+            "box": [x1, y1, x2, y2],
+        })
+
+    if not cv2.imwrite(str(output_path), annotated):
+        raise OSError(f"No se pudo guardar la imagen anotada: {output_path}")
+
+    return {
+        "output_path": output_path,
+        "detections": detections,
+    }
 
 def obtener_split_por_indice(splits_dir, i):
     splits_path = Path(splits_dir)
